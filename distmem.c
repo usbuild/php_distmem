@@ -155,27 +155,6 @@ PHP_MINFO_FUNCTION(distmem)
    purposes. */
 
 /* Every user-visible function in PHP should document itself in the source */
-/* {{{ proto string confirm_distmem_compiled(string arg)
-   Return a string to confirm that the module is compiled in */
-PHP_FUNCTION(confirm_distmem_compiled)
-{
-	char *arg = NULL;
-	int arg_len, len;
-	char *strg;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &arg, &arg_len) == FAILURE) {
-		return;
-	}
-
-	len = spprintf(&strg, 0, "Congratulations! You have successfully modified ext/%.78s/config.m4. Module %.78s is now compiled into PHP.", "distmem", arg);
-	RETURN_STRINGL(strg, len, 0);
-}
-/* }}} */
-/* The previous line is meant for vim and emacs, so it can correctly fold and 
-   unfold functions in source code. See the corresponding marks just before 
-   function definition, where the functions purpose is also documented. Please 
-   follow this convention for the convenience of others editing your code.
-*/
 
 
 /*
@@ -186,6 +165,102 @@ PHP_FUNCTION(confirm_distmem_compiled)
  * vim600: noet sw=4 ts=4 fdm=marker
  * vim<600: noet sw=4 ts=4
  */
+
+PHPAPI DMSock* dm_sock_create(char *host, int host_len, unsigned short port, long timeout) {
+    DMSock *dm_sock;
+    dm_sock         = emalloc(sizeof *dm_sock);
+    dm_sock->host   = emalloc(host_len + 1);
+    dm_sock->stream = NULL;
+    dm_sock->status = DM_SOCK_STATUS_DISCONNECTED;
+
+    memcpy(dm_sock->host, host, host_len);
+    dm_sock->host[host_len] = '\0';
+
+    dm_sock->port    = port;
+    dm_sock->timeout = timeout;
+
+    return dm_sock;
+}
+
+PHPAPI int dm_sock_connect(DMSock *dm_sock TSRMLS_DC) {
+    struct timeval tv;
+    char *host = NULL, *hash_key = NULL, *errstr = NULL;
+    int host_len, err = 0;
+
+    if (dm_sock->stream != NULL) {
+        dm_sock_disconnect(dm_sock TSRMLS_CC);
+    }
+
+    tv.tv_sec  = dm_sock->timeout;
+    tv.tv_usec = 0;
+
+    host_len = spprintf(&host, 0, "%s:%d", dm_sock->host, dm_sock->port);
+
+    dm_sock->stream = php_stream_xport_create(host, host_len, ENFORCE_SAFE_MODE,
+        STREAM_XPORT_CLIENT
+        | STREAM_XPORT_CONNECT,
+        hash_key, &tv, NULL, &errstr, &err
+        );
+
+    efree(host);
+
+    if (!dm_sock->stream) {
+        efree(errstr);
+        return -1;
+    }
+
+    php_stream_auto_cleanup(dm_sock->stream);
+
+    php_stream_set_option(dm_sock->stream,
+        PHP_STREAM_OPTION_READ_TIMEOUT,
+        0, &tv);
+    php_stream_set_option(dm_sock->stream,
+        PHP_STREAM_OPTION_WRITE_BUFFER,
+        PHP_STREAM_BUFFER_NONE, NULL);
+    dm_sock->status = DM_SOCK_STATUS_CONNECTED;
+    return 0;
+}
+
+PHPAPI int dm_sock_disconnect(DMSock *dm_sock TSRMLS_DC) {
+    int res = 0;
+
+    if (dm_sock->stream != NULL) {
+        dm_sock_write(dm_sock, "QUIT");
+
+        dm_sock->status = DM_SOCK_STATUS_DISCONNECTED;
+        php_stream_close(dm_sock->stream);
+        dm_sock->stream = NULL;
+
+        res = 1;
+    }
+
+    return res;
+
+}
+
+PHPAPI int dm_sock_server_open(DMSock *dm_sock, int force_connect TSRMLS_DC) {
+    int res = -1;
+
+    switch (dm_sock->status) {
+    case DM_SOCK_STATUS_DISCONNECTED:
+        return dm_sock_connect(dm_sock TSRMLS_CC);
+    case DM_SOCK_STATUS_CONNECTED:
+        res = 0;
+        break;
+    case DM_SOCK_STATUS_UNKNOWN:
+        if (force_connect > 0 && dm_sock_connect(dm_sock TSRMLS_CC) < 0) {
+            res = -1;
+        } else {
+            res = 0;
+            dm_sock->status = DM_SOCK_STATUS_CONNECTED;
+        }
+        break;
+    }
+
+    return res;
+
+}
+
 ZEND_METHOD(Distmem, __construct) {
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
 		RETURN_FALSE;

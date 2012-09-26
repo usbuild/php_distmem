@@ -86,11 +86,12 @@ ZEND_END_MODULE_GLOBALS(distmem)
  * vim<600: noet sw=4 ts=4
  */
 #define PHP_DM_VERSION				"0.0.1"
+
 #define DM_SOCK_STATUS_FAILED		0
 #define DM_SOCK_STATUS_DISCONNECTED	1
 #define DM_SOCK_STATUS_UNKNOWN		2
 #define DM_SOCK_STATUS_CONNECTED	3
-struct DMSock_ {
+typedef struct DMSock_ {
 	php_stream		*stream;
 	char			*host;
 	unsigned short 	port;
@@ -98,3 +99,11 @@ struct DMSock_ {
 	int				fail;
 	int 			status;
 } DMSock;
+
+PHPAPI DMSock* dm_sock_create(char *host, int host_len, unsigned short port, long timeout);
+PHPAPI int dm_sock_connect(DMSock *dm_sock TSRMLS_DC);
+PHPAPI int dm_sock_disconnect(DMSock *dm_sock TSRMLS_DC);
+PHPAPI int dm_sock_server_open(DMSock *dm_sock, int force_connect TSRMLS_DC);
+PHPAPI char* dm_sock_read(DMSock *dm_sock, int *buf_len TSRMLS_DC);
+PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd);
+PHPAPI void dm_free_socket(DMSock *dm_sock);
