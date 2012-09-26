@@ -85,3 +85,16 @@ ZEND_END_MODULE_GLOBALS(distmem)
  * vim600: noet sw=4 ts=4 fdm=marker
  * vim<600: noet sw=4 ts=4
  */
+#define PHP_DM_VERSION				"0.0.1"
+#define DM_SOCK_STATUS_FAILED		0
+#define DM_SOCK_STATUS_DISCONNECTED	1
+#define DM_SOCK_STATUS_UNKNOWN		2
+#define DM_SOCK_STATUS_CONNECTED	3
+struct DMSock_ {
+	php_stream		*stream;
+	char			*host;
+	unsigned short 	port;
+	long 			timeout;
+	int				fail;
+	int 			status;
+} DMSock;

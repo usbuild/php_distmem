@@ -139,7 +139,8 @@ PHP_RSHUTDOWN_FUNCTION(distmem)
 PHP_MINFO_FUNCTION(distmem)
 {
 	php_info_print_table_start();
-	php_info_print_table_header(2, "distmem support", "enabled");
+	php_info_print_table_row(2, "Distmem Support", "enabled");
+	php_info_print_table_row(2, "Version", PHP_DM_VERSION);
 	php_info_print_table_end();
 
 	/* Remove comments if you have entries in php.ini
@@ -194,4 +195,12 @@ ZEND_METHOD(Distmem, __construct) {
 /* {{{ proto boolean connect(string host, int port)
      */
 ZEND_METHOD(Distmem, connect) {
+	zval *object;
+	char *host;
+	long port;
+	int host_len;
+	if(zend_parse_method_parameters(ZEND_NUM_ARGS() TSRMLS_CC, getThis(), "Osl", &object, distmem_ce, &host, &host_len, &port) == FAILURE) {
+		RETURN_FALSE;
+	}
 }
+/* }}} */
