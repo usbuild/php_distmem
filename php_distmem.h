@@ -107,3 +107,4 @@ PHPAPI int dm_sock_server_open(DMSock *dm_sock, int force_connect TSRMLS_DC);
 PHPAPI char* dm_sock_read(DMSock *dm_sock, int *buf_len TSRMLS_DC);
 PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd);
 PHPAPI void dm_free_socket(DMSock *dm_sock);
+PHPAPI int dm_sock_get(zval *id, DMSock **dm_sock TSRMLS_DC);

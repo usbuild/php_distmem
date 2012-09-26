@@ -31,7 +31,7 @@ ZEND_DECLARE_MODULE_GLOBALS(distmem)
 */
 
 /* True global resources - no need for thread safety here */
-static int le_distmem;
+static int le_dm_sock;
 zend_class_entry *distmem_ce;
 
 static zend_function_entry distmem_method[] = {
@@ -260,6 +260,56 @@ PHPAPI int dm_sock_server_open(DMSock *dm_sock, int force_connect TSRMLS_DC) {
     return res;
 
 }
+
+PHPAPI char *dm_sock_read(DMSock *dm_sock, int *buf_len TSRMLS_DC)
+{
+    char inbuf[1024], response[1024], *s;
+    int length;
+
+    s = php_stream_gets(dm_sock->stream, inbuf, 1024);
+    s = estrndup(s, (strlen(s)-2));
+    return response;
+}
+
+PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd)
+{
+    php_stream_write(dm_sock->stream, cmd, strlen(cmd));
+
+    return 0;
+}
+
+/**
+ * dm_sock_get
+ */
+PHPAPI int dm_sock_get(zval *id, DMSock **dm_sock TSRMLS_DC)
+{
+    zval **socket;
+    int resource_type;
+
+    if (Z_TYPE_P(id) != IS_OBJECT || zend_hash_find(Z_OBJPROP_P(id), "socket",
+                                  sizeof("socket"), (void **) &socket) == FAILURE) {
+        return -1;
+    }
+
+    *dm_sock = (DMSock *) zend_list_find(Z_LVAL_PP(socket), &resource_type);
+
+    if (!*dm_sock || resource_type != le_dm_sock) {
+        return -1;
+    }
+
+    return Z_LVAL_PP(socket);
+}
+
+/**
+ * dm_free_socket
+ */
+PHPAPI void dm_free_socket(DMSock *dm_sock)
+{
+    efree(dm_sock->host);
+    efree(dm_sock);
+}
+
+
 
 ZEND_METHOD(Distmem, __construct) {
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
