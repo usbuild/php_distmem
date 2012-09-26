@@ -12,11 +12,10 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Author:                                                              |
+  | Author: Usbuild <njuzhangqichao@gmail.com>                           |
   +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -36,7 +35,9 @@ static int le_distmem;
 zend_class_entry *distmem_ce;
 
 static zend_function_entry distmem_method[] = {
-    {NULL, NULL, NULL}
+    ZEND_ME(Distmem, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+    ZEND_ME(Distmem, connect, NULL, ZEND_ACC_PUBLIC)
+    ZEND_FE_END
 };
 /* {{{ distmem_functions[]
  *
@@ -99,7 +100,7 @@ PHP_MINIT_FUNCTION(distmem)
     zend_class_entry ce;
     INIT_CLASS_ENTRY(ce, "Distmem", distmem_method);
     distmem_ce = zend_register_internal_class(&ce TSRMLS_CC);
-    zend_declare_property_null(distmem_ce, "public_var", strlen("public_var"), ZEND_ACC_PUBLIC TSRMLS_CC);
+    //zend_declare_property_null(distmem_ce, "public_var", strlen("public_var"), ZEND_ACC_PUBLIC TSRMLS_CC);
     return SUCCESS;
 }
 /* }}} */
@@ -184,3 +185,13 @@ PHP_FUNCTION(confirm_distmem_compiled)
  * vim600: noet sw=4 ts=4 fdm=marker
  * vim<600: noet sw=4 ts=4
  */
+ZEND_METHOD(Distmem, __construct) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
+		RETURN_FALSE;
+	}
+}
+
+/* {{{ proto boolean connect(string host, int port)
+     */
+ZEND_METHOD(Distmem, connect) {
+}

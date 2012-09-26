@@ -12,16 +12,20 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Author:                                                              |
+  | Author: Usbuild <njuzhangqichao@gmail.com>                           |
   +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
 
 #ifndef PHP_DISTMEM_H
 #define PHP_DISTMEM_H
 
 extern zend_module_entry distmem_module_entry;
+//user define function ----start----
+ZEND_METHOD(Distmem, __construct);
+ZEND_METHOD(Distmem, connect);
+//user define function ----end----
+
 #define phpext_distmem_ptr &distmem_module_entry
 
 #ifdef PHP_WIN32
@@ -42,9 +46,7 @@ PHP_RINIT_FUNCTION(distmem);
 PHP_RSHUTDOWN_FUNCTION(distmem);
 PHP_MINFO_FUNCTION(distmem);
 
-//user define function ----start----
-ZEND_FUNCTION(distmem);
-//user define function ----end----
+
 
 /* 
   	Declare any global variables you may need between the BEGIN
