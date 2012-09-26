@@ -24,6 +24,9 @@ extern zend_module_entry distmem_module_entry;
 //user define function ----start----
 ZEND_METHOD(Distmem, __construct);
 ZEND_METHOD(Distmem, connect);
+ZEND_METHOD(Distmem, set);
+ZEND_METHOD(Distmem, get);
+ZEND_METHOD(Distmem, delete);
 //user define function ----end----
 
 #define phpext_distmem_ptr &distmem_module_entry

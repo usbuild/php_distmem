@@ -37,6 +37,9 @@ zend_class_entry *distmem_ce;
 static zend_function_entry distmem_method[] = {
     ZEND_ME(Distmem, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
     ZEND_ME(Distmem, connect, NULL, ZEND_ACC_PUBLIC)
+    ZEND_ME(Distmem, set, NULL, ZEND_ACC_PUBLIC)
+    ZEND_ME(Distmem, get, NULL, ZEND_ACC_PUBLIC)
+    ZEND_ME(Distmem, delete, NULL, ZEND_ACC_PUBLIC)
     ZEND_FE_END
 };
 /* {{{ distmem_functions[]
@@ -197,8 +200,7 @@ PHPAPI int dm_sock_connect(DMSock *dm_sock TSRMLS_DC) {
     host_len = spprintf(&host, 0, "%s:%d", dm_sock->host, dm_sock->port);
 
     dm_sock->stream = php_stream_xport_create(host, host_len, ENFORCE_SAFE_MODE,
-        STREAM_XPORT_CLIENT
-        | STREAM_XPORT_CONNECT,
+        STREAM_XPORT_CLIENT | STREAM_XPORT_CONNECT,
         hash_key, &tv, NULL, &errstr, &err
         );
 
@@ -240,7 +242,6 @@ PHPAPI int dm_sock_disconnect(DMSock *dm_sock TSRMLS_DC) {
 
 PHPAPI int dm_sock_server_open(DMSock *dm_sock, int force_connect TSRMLS_DC) {
     int res = -1;
-
     switch (dm_sock->status) {
     case DM_SOCK_STATUS_DISCONNECTED:
         return dm_sock_connect(dm_sock TSRMLS_CC);
@@ -319,13 +320,83 @@ ZEND_METHOD(Distmem, __construct) {
 
 /* {{{ proto boolean connect(string host, int port)
      */
-ZEND_METHOD(Distmem, connect) {
-	zval *object;
-	char *host;
-	long port;
-	int host_len;
-	if(zend_parse_method_parameters(ZEND_NUM_ARGS() TSRMLS_CC, getThis(), "Osl", &object, distmem_ce, &host, &host_len, &port) == FAILURE) {
-		RETURN_FALSE;
-	}
+PHP_METHOD(Distmem, connect)
+{
+    zval *object;
+    int host_len, id;
+    char *host = NULL;
+    long port;
+
+    struct timeval timeout = {5L, 0L};
+    DMSock *dm_sock  = NULL;
+
+    if (zend_parse_method_parameters(ZEND_NUM_ARGS() TSRMLS_CC, getThis(), "Osl|l",
+                                     &object, distmem_ce, &host, &host_len, &port,
+                                     &timeout.tv_sec) == FAILURE) {
+       RETURN_FALSE;
+    }
+
+    if (timeout.tv_sec < 0L || timeout.tv_sec > INT_MAX) {
+        //zend_throw_exception(dm_exception_ce, "Invalid timeout", 0 TSRMLS_CC);
+        RETURN_FALSE;
+    }
+
+    dm_sock = dm_sock_create(host, host_len, port, timeout.tv_sec);
+
+    if (dm_sock_server_open(dm_sock, 1 TSRMLS_CC) < 0) {
+        dm_free_socket(dm_sock);
+        /*
+        zend_throw_exception_ex(
+            dm_exception_ce,
+            0 TSRMLS_CC,
+            "Can't connect to %s:%d",
+            host,
+            port
+        );
+        */
+        RETURN_FALSE;
+    }
+
+    id = zend_list_insert(dm_sock, le_dm_sock);
+    add_property_resource(object, "socket", id);
+
+    RETURN_TRUE;
 }
 /* }}} */
+
+PHP_METHOD(Distmem, set)
+{
+    zval *object;
+    DMSock *dm_sock;
+    char *key = NULL, *val = NULL, *cmd, *response;
+    int key_len, val_len, cmd_len, response_len;
+
+    if (zend_parse_method_parameters(ZEND_NUM_ARGS() TSRMLS_CC, getThis(), "Oss",
+                                     &object, distmem_ce, &key, &key_len,
+                                     &val, &val_len) == FAILURE) {
+        RETURN_FALSE;
+    }
+
+    if (dm_sock_get(object, &dm_sock TSRMLS_CC) < 0) {
+        RETURN_FALSE;
+    }
+
+    cmd_len = spprintf(&cmd, 0, "SET %s %d\r\n%s\r\n", key, strlen(val), val);
+
+    if (dm_sock_write(dm_sock, cmd) < 0) {
+        RETURN_FALSE;
+    }
+
+    if ((response = dm_sock_read(dm_sock, &response_len TSRMLS_CC)) == NULL) {
+        RETURN_FALSE;
+    }
+
+    if (response[0] == 0x2b) {
+        RETURN_TRUE;
+    } else {
+        RETURN_FALSE;
+    }
+}
+
+PHP_METHOD(Distmem, delete){}
+PHP_METHOD(Distmem, get){}
