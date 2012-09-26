@@ -1,0 +1,7 @@
+*
+!config.m4
+!CREDITS
+!README
+!php_distmem.h
+!distmem.c
+!.gitignore

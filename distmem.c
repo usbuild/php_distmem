@@ -37,6 +37,7 @@ zend_class_entry *distmem_ce;
 static zend_function_entry distmem_method[] = {
     ZEND_ME(Distmem, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
     ZEND_ME(Distmem, connect, NULL, ZEND_ACC_PUBLIC)
+    ZEND_ME(Distmem, use, NULL, ZEND_ACC_PUBLIC)
     ZEND_ME(Distmem, set, NULL, ZEND_ACC_PUBLIC)
     ZEND_ME(Distmem, get, NULL, ZEND_ACC_PUBLIC)
     ZEND_ME(Distmem, delete, NULL, ZEND_ACC_PUBLIC)
@@ -268,8 +269,10 @@ PHPAPI char *dm_sock_read(DMSock *dm_sock, int *buf_len TSRMLS_DC)
     int length;
 
     s = php_stream_gets(dm_sock->stream, inbuf, 1024);
-    s = estrndup(s, (strlen(s)-2));
-    return response;
+    return s;
+    //s = estrndup(s, (strlen(s)-2));
+    //strcpy(response, s);
+    //return response;
 }
 
 PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd)
@@ -364,6 +367,37 @@ PHP_METHOD(Distmem, connect)
 }
 /* }}} */
 
+PHP_METHOD(Distmem, use) {
+    zval *object;
+    DMSock *dm_sock;
+    char *domain = NULL, *cmd, *response;
+    int domain_len, cmd_len, response_len;
+
+    if (zend_parse_method_parameters(ZEND_NUM_ARGS() TSRMLS_CC, getThis(), "Os",
+                                     &object, distmem_ce, &domain, &domain_len) == FAILURE) {
+        RETURN_FALSE;
+    }
+
+    if (dm_sock_get(object, &dm_sock TSRMLS_CC) < 0) {
+        RETURN_FALSE;
+    }
+
+    cmd_len = spprintf(&cmd, 0, "*2\r\n$3\r\nuse\r\n$%d\r\n%s\r\n", strlen(domain), domain);
+
+    if (dm_sock_write(dm_sock, cmd) < 0) {
+        RETURN_FALSE;
+    }
+
+    if ((response = dm_sock_read(dm_sock, &response_len TSRMLS_CC)) == NULL) {
+        RETURN_FALSE;
+    }
+
+    if (response[0] == '+') {
+        RETURN_TRUE;
+    } else {
+        RETURN_FALSE;
+    }
+}
 PHP_METHOD(Distmem, set)
 {
     zval *object;
@@ -381,7 +415,7 @@ PHP_METHOD(Distmem, set)
         RETURN_FALSE;
     }
 
-    cmd_len = spprintf(&cmd, 0, "SET %s %d\r\n%s\r\n", key, strlen(val), val);
+    cmd_len = spprintf(&cmd, 0, "*3\r\n$3\r\nset\r\n$%d\r\n%s\r\n$%d\r\ns%s\r\n", strlen(key), key, strlen(val) + 1, val);
 
     if (dm_sock_write(dm_sock, cmd) < 0) {
         RETURN_FALSE;
@@ -391,7 +425,7 @@ PHP_METHOD(Distmem, set)
         RETURN_FALSE;
     }
 
-    if (response[0] == 0x2b) {
+    if (response[0] == '+') {
         RETURN_TRUE;
     } else {
         RETURN_FALSE;
