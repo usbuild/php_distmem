@@ -461,15 +461,21 @@ PHP_METHOD(Distmem, get){
         response_len = atoi(response + 1);
         response = dm_sock_read(dm_sock, response_len);
         char *str;
+        int result;
+        float fres;
+        str = emalloc(sizeof(char) * response_len);
+        strncpy(str, response + 1, response_len -1);
+        str[response_len - 1] = 0;
         switch(response[0]) {
-            case 'i':
-                break;
             case 's':
-                str = emalloc(sizeof(char) * response_len);
-                strncpy(str, response + 1, response_len -1);
-                str[response_len - 1] = 0;
                 RETURN_STRING(str, 0);    
+            case 'i':
+                result = atoi(str);
+                RETURN_LONG(result);
+                break;
             case 'f':
+                fres = atof(str);
+                RETURN_FLOAT(fres);
                 break;
             case 'l':
                 break;
