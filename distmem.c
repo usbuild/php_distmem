@@ -170,6 +170,46 @@ PHP_MINFO_FUNCTION(distmem)
  * vim<600: noet sw=4 ts=4
  */
 
+PHPAPI int str_count(char *haystack, char *needle) {/*{{{*/
+    char *found = haystack;
+    int needle_len = strlen(needle);
+    int count = 0;
+    while(found = strstr(found, needle)) {
+        count++;
+        found += needle_len;
+    }
+    return count;
+}/*}}}*/
+
+PHPAPI char* str_replace(char *haystack, char *search, char *replace) {/*{{{*/
+    char *pos = strstr(haystack, search);
+    int count = str_count(haystack, search);
+    if(pos = NULL) {
+        return strdup(haystack);
+    }
+    int search_len = strlen(search);
+    int replace_len = strlen(replace);
+    char *new_str = (char*) calloc(strlen(haystack) + count * (replace_len - search_len) + 2, sizeof(char));
+    char *found = haystack;
+
+    pos = haystack;
+    while(found = strstr(found, search)) {
+        strncat(new_str, pos, found - pos);
+        strcat(new_str, replace);
+        found += search_len;
+        pos = found;
+    }
+    strcat(new_str, pos);
+    return new_str;
+}/*}}}*/
+
+PHPAPI char *strdcat(const char *s1, const char *s2) {/*{{{*/
+    char *new_str = (char*) calloc(strlen(s1) + strlen(s2) + 1, sizeof(char));
+    strcpy(new_str, s1);
+    strcat(new_str, s2);
+    return new_str;
+}/*}}}*/
+
 PHPAPI DMSock* dm_sock_create(char *host, int host_len, unsigned short port, long timeout) {/*{{{*/
     DMSock *dm_sock;
     dm_sock         = emalloc(sizeof *dm_sock);
@@ -284,19 +324,15 @@ PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd)/*{{{*/
     return 0;
 }/*}}}*/
 
-
 PHPAPI void parse_list(zval *array, char *str) {//only one level/*{{{*/
     char *s = str + 1, *old = s;
     zval *newarr;
     char *t = s;
     switch(str[0]) {
         case 's':
-            while(t = strstr(t, "\\\\")) {
-                int i, len = strlen(t);
-                for(i = 0; i < len; i++) {
-                    t[i] = t[i + 1];
-                }
-            }
+            t = str_replace(s, "\\\\", "\\");
+            s = str_replace(t, "\\,", ",");
+            free(t);
             add_next_index_string(array, s, 0);
             return;
         case 'i':
@@ -308,7 +344,7 @@ PHPAPI void parse_list(zval *array, char *str) {//only one level/*{{{*/
         case 'l':
             while(s = strchr(s, ',')) {
                 if( s > str + 1 && (*(s - 1) != '\\' || (*(s - 1) == '\\' && *(s - 2) == '\\'))) {
-                     parse_list(array, strndup(old, s - old));
+                     parse_list(array, strndup(old, s - old + 1));
                      old = s + 1;
                  }
                      s++;
@@ -320,47 +356,7 @@ PHPAPI void parse_list(zval *array, char *str) {//only one level/*{{{*/
     }
 }/*}}}*/
 
-PHPAPI int str_count(char *haystack, char *needle) {/*{{{*/
-    char *found = haystack;
-    int needle_len = strlen(needle);
-    int count = 0;
-    while(found = strstr(found, needle)) {
-        count++;
-        found += needle_len;
-    }
-    return count;
-}/*}}}*/
-
-PHPAPI char* str_replace(char *haystack, char *search, char *replace) {/*{{{*/
-    char *pos = strstr(haystack, search);
-    int count = str_count(haystack, search);
-    if(pos = NULL) {
-        return strdup(haystack);
-    }
-    int search_len = strlen(search);
-    int replace_len = strlen(replace);
-    char *new_str = (char*) calloc(strlen(haystack) + count * (replace_len - search_len) + 2, sizeof(char));
-    char *found = haystack;
-
-    pos = haystack;
-    while(found = strstr(found, search)) {
-        strncat(new_str, pos, found - pos);
-        strcat(new_str, replace);
-        found += search_len;
-        pos = found;
-    }
-    strcat(new_str, pos);
-    return new_str;
-}/*}}}*/
-
-PHPAPI char *strdcat(const char *s1, const char *s2) {/*{{{*/
-    char *new_str = (char*) calloc(strlen(s1) + strlen(s2) + 1, sizeof(char));
-    strcpy(new_str, s1);
-    strcat(new_str, s2);
-    return new_str;
-}/*}}}*/
-
-PHPAPI char* array_to_string(zval *val) {
+PHPAPI char* array_to_string(zval *val) {/*{{{*/
     HashTable *arr_hash = Z_ARRVAL_P(val);
     zval tmp_data, **data;
     int array_count = zend_hash_num_elements(arr_hash);
@@ -392,12 +388,11 @@ PHPAPI char* array_to_string(zval *val) {
         free(final);
         final = tmp;
         free(str1);
+        free(str);
     }
     return final + 2;//for space and comma
-}
-/**
- * dm_sock_get
- */
+}/*}}}*/
+
 PHPAPI int dm_sock_get(zval *id, DMSock **dm_sock TSRMLS_DC)/*{{{*/
 {
     zval **socket;
@@ -417,9 +412,6 @@ PHPAPI int dm_sock_get(zval *id, DMSock **dm_sock TSRMLS_DC)/*{{{*/
     return Z_LVAL_PP(socket);
 }/*}}}*/
 
-/**
- * dm_free_socket
- */
 PHPAPI void dm_free_socket(DMSock *dm_sock)/*{{{*/
 {
     efree(dm_sock->host);
@@ -509,6 +501,7 @@ PHP_METHOD(Distmem, use) {/*{{{*/
         RETURN_FALSE;
     }
 }/*}}}*/
+
 PHP_METHOD(Distmem, set)/*{{{*/
 {
     zval *object;
@@ -543,7 +536,6 @@ PHP_METHOD(Distmem, set)/*{{{*/
         val_len = strlen(valstr);
     }
     cmd_len = spprintf(&cmd, 0, "*3\r\n$3\r\nset\r\n$%d\r\n%s\r\n$%d\r\n%c%s\r\n", strlen(key), key, val_len + 1, type, valstr);
-    PHPWRITE(cmd, cmd_len);
 
     if (dm_sock_write(dm_sock, cmd) < 0) {
         RETURN_FALSE;
@@ -570,6 +562,7 @@ PHP_METHOD(Distmem, get){/*{{{*/
                                      &object, distmem_ce, &key, &key_len) == FAILURE) {
         RETURN_NULL();
     }
+
     if (dm_sock_get(object, &dm_sock TSRMLS_CC) < 0) {
         RETURN_NULL();
     }
@@ -596,7 +589,7 @@ PHP_METHOD(Distmem, get){/*{{{*/
 
         switch(response[0]) {
             case 's':
-                RETURN_STRING(str + 1, 0);    
+                RETURN_STRING(str + 1, 1);    
             case 'i':
                 result = atoi(str + 1);
                 RETURN_LONG(result);
@@ -619,4 +612,5 @@ PHP_METHOD(Distmem, get){/*{{{*/
         RETURN_NULL();
     }
 }/*}}}*/
+
 PHP_METHOD(Distmem, delete){}
