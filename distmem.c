@@ -387,11 +387,11 @@ PHPAPI char* array_to_string(zval *val) {
 
         char *str1 = str_replace(str, "\\", "\\\\");
         char *str2 = str_replace(str1, ",", "\\,");
-        free(str1);
         char *tmp = malloc(sizeof(char) * (strlen(str1) + strlen(final) + 5));
         sprintf(tmp, "%s,%c%s", final, type, str2);
         free(final);
         final = tmp;
+        free(str1);
     }
     return final + 2;//for space and comma
 }
@@ -509,7 +509,7 @@ PHP_METHOD(Distmem, use) {/*{{{*/
         RETURN_FALSE;
     }
 }/*}}}*/
-PHP_METHOD(Distmem, set)
+PHP_METHOD(Distmem, set)/*{{{*/
 {
     zval *object;
     zval *val;
@@ -542,7 +542,8 @@ PHP_METHOD(Distmem, set)
         valstr = array_to_string(val);
         val_len = strlen(valstr);
     }
-    cmd_len = spprintf(&cmd, 0, "*3\r\n$4\r\nset\r\n$%d\r\n%s\r\n$%d\r\n%c%s\r\n", strlen(key), key, val_len + 1, type, valstr);
+    cmd_len = spprintf(&cmd, 0, "*3\r\n$3\r\nset\r\n$%d\r\n%s\r\n$%d\r\n%c%s\r\n", strlen(key), key, val_len + 1, type, valstr);
+    PHPWRITE(cmd, cmd_len);
 
     if (dm_sock_write(dm_sock, cmd) < 0) {
         RETURN_FALSE;
@@ -557,7 +558,7 @@ PHP_METHOD(Distmem, set)
     } else {
         RETURN_FALSE;
     }
-}
+}/*}}}*/
 
 PHP_METHOD(Distmem, get){/*{{{*/
     zval *object;
@@ -592,6 +593,8 @@ PHP_METHOD(Distmem, get){/*{{{*/
         str = emalloc(sizeof(char) * response_len);
         strncpy(str, response, response_len);
         str[response_len - 1] = 0;
+        PHPWRITE(str, strlen(str));
+
         switch(response[0]) {
             case 's':
                 RETURN_STRING(str + 1, 0);    
