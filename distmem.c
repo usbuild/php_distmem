@@ -170,7 +170,7 @@ PHP_MINFO_FUNCTION(distmem)
  * vim<600: noet sw=4 ts=4
  */
 
-PHPAPI DMSock* dm_sock_create(char *host, int host_len, unsigned short port, long timeout) {
+PHPAPI DMSock* dm_sock_create(char *host, int host_len, unsigned short port, long timeout) {/*{{{*/
     DMSock *dm_sock;
     dm_sock         = emalloc(sizeof *dm_sock);
     dm_sock->host   = emalloc(host_len + 1);
@@ -184,9 +184,9 @@ PHPAPI DMSock* dm_sock_create(char *host, int host_len, unsigned short port, lon
     dm_sock->timeout = timeout;
 
     return dm_sock;
-}
+}/*}}}*/
 
-PHPAPI int dm_sock_connect(DMSock *dm_sock TSRMLS_DC) {
+PHPAPI int dm_sock_connect(DMSock *dm_sock TSRMLS_DC) {/*{{{*/
     struct timeval tv;
     char *host = NULL, *hash_key = NULL, *errstr = NULL;
     int host_len, err = 0;
@@ -222,9 +222,9 @@ PHPAPI int dm_sock_connect(DMSock *dm_sock TSRMLS_DC) {
         PHP_STREAM_BUFFER_NONE, NULL);
     dm_sock->status = DM_SOCK_STATUS_CONNECTED;
     return 0;
-}
+}/*}}}*/
 
-PHPAPI int dm_sock_disconnect(DMSock *dm_sock TSRMLS_DC) {
+PHPAPI int dm_sock_disconnect(DMSock *dm_sock TSRMLS_DC) {/*{{{*/
     int res = 0;
 
     if (dm_sock->stream != NULL) {
@@ -239,9 +239,9 @@ PHPAPI int dm_sock_disconnect(DMSock *dm_sock TSRMLS_DC) {
 
     return res;
 
-}
+}/*}}}*/
 
-PHPAPI int dm_sock_server_open(DMSock *dm_sock, int force_connect TSRMLS_DC) {
+PHPAPI int dm_sock_server_open(DMSock *dm_sock, int force_connect TSRMLS_DC) {/*{{{*/
     int res = -1;
     switch (dm_sock->status) {
     case DM_SOCK_STATUS_DISCONNECTED:
@@ -261,31 +261,31 @@ PHPAPI int dm_sock_server_open(DMSock *dm_sock, int force_connect TSRMLS_DC) {
 
     return res;
 
-}
+}/*}}}*/
 
-PHPAPI char *dm_sock_read(DMSock *dm_sock, size_t count TSRMLS_DC)
+PHPAPI char *dm_sock_read(DMSock *dm_sock, size_t count TSRMLS_DC)/*{{{*/
 {
     char * s = emalloc(sizeof(char) * count);
     php_stream_read(dm_sock->stream, s, count);
     return s;
-}
+}/*}}}*/
 
-PHPAPI char *dm_sock_readln(DMSock *dm_sock)
+PHPAPI char *dm_sock_readln(DMSock *dm_sock)/*{{{*/
 {
     char inbuf[1024], *s;
     s = php_stream_gets(dm_sock->stream, inbuf, 1024);
     return s;
-}
+}/*}}}*/
 
-PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd)
+PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd)/*{{{*/
 {
     php_stream_write(dm_sock->stream, cmd, strlen(cmd));
 
     return 0;
-}
+}/*}}}*/
 
 
-PHPAPI void parse_list(zval *array, char *str) {//only one level
+PHPAPI void parse_list(zval *array, char *str) {//only one level/*{{{*/
     char *s = str + 1, *old = s;
     zval *newarr;
     char *t = s;
@@ -318,12 +318,87 @@ PHPAPI void parse_list(zval *array, char *str) {//only one level
         default:
             return;
     }
-}
+}/*}}}*/
 
+PHPAPI int str_count(char *haystack, char *needle) {/*{{{*/
+    char *found = haystack;
+    int needle_len = strlen(needle);
+    int count = 0;
+    while(found = strstr(found, needle)) {
+        count++;
+        found += needle_len;
+    }
+    return count;
+}/*}}}*/
+
+PHPAPI char* str_replace(char *haystack, char *search, char *replace) {/*{{{*/
+    char *pos = strstr(haystack, search);
+    int count = str_count(haystack, search);
+    if(pos = NULL) {
+        return strdup(haystack);
+    }
+    int search_len = strlen(search);
+    int replace_len = strlen(replace);
+    char *new_str = (char*) calloc(strlen(haystack) + count * (replace_len - search_len) + 2, sizeof(char));
+    char *found = haystack;
+
+    pos = haystack;
+    while(found = strstr(found, search)) {
+        strncat(new_str, pos, found - pos);
+        strcat(new_str, replace);
+        found += search_len;
+        pos = found;
+    }
+    strcat(new_str, pos);
+    return new_str;
+}/*}}}*/
+
+PHPAPI char *strdcat(const char *s1, const char *s2) {/*{{{*/
+    char *new_str = (char*) calloc(strlen(s1) + strlen(s2) + 1, sizeof(char));
+    strcpy(new_str, s1);
+    strcat(new_str, s2);
+    return new_str;
+}/*}}}*/
+
+PHPAPI char* array_to_string(zval *val) {
+    HashTable *arr_hash = Z_ARRVAL_P(val);
+    zval tmp_data, **data;
+    int array_count = zend_hash_num_elements(arr_hash);
+    HashPosition pointer;
+    char *final = strdup(" ");
+    char *type;
+
+    for(zend_hash_internal_pointer_reset_ex(arr_hash, &pointer); 
+        zend_hash_get_current_data_ex(arr_hash, (void **)&data, &pointer)==SUCCESS;
+        zend_hash_move_forward_ex(arr_hash,&pointer) ) {
+        tmp_data = **data;
+
+        switch(Z_TYPE_P(&tmp_data)) {
+            case IS_ARRAY:type = 'l'; break;
+            case IS_DOUBLE: type = 'f';break;
+            case IS_LONG: type = 'i';break;
+            default: type = 's';break;
+        }
+
+        zval_copy_ctor(&tmp_data);
+        convert_to_string(&tmp_data);
+        char *str = strndup(Z_STRVAL(tmp_data), Z_STRLEN(tmp_data));
+        zval_dtor(&tmp_data);
+
+        char *str1 = str_replace(str, "\\", "\\\\");
+        char *str2 = str_replace(str1, ",", "\\,");
+        free(str1);
+        char *tmp = malloc(sizeof(char) * (strlen(str1) + strlen(final) + 5));
+        sprintf(tmp, "%s,%c%s", final, type, str2);
+        free(final);
+        final = tmp;
+    }
+    return final + 2;//for space and comma
+}
 /**
  * dm_sock_get
  */
-PHPAPI int dm_sock_get(zval *id, DMSock **dm_sock TSRMLS_DC)
+PHPAPI int dm_sock_get(zval *id, DMSock **dm_sock TSRMLS_DC)/*{{{*/
 {
     zval **socket;
     int resource_type;
@@ -340,24 +415,22 @@ PHPAPI int dm_sock_get(zval *id, DMSock **dm_sock TSRMLS_DC)
     }
 
     return Z_LVAL_PP(socket);
-}
+}/*}}}*/
 
 /**
  * dm_free_socket
  */
-PHPAPI void dm_free_socket(DMSock *dm_sock)
+PHPAPI void dm_free_socket(DMSock *dm_sock)/*{{{*/
 {
     efree(dm_sock->host);
     efree(dm_sock);
-}
+}/*}}}*/
 
-
-
-ZEND_METHOD(Distmem, __construct) {
+ZEND_METHOD(Distmem, __construct) {/*{{{*/
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
 		RETURN_FALSE;
 	}
-}
+}/*}}}*/
 
 /* {{{ proto boolean connect(string host, int port)
      */
@@ -405,7 +478,7 @@ PHP_METHOD(Distmem, connect)
 }
 /* }}} */
 
-PHP_METHOD(Distmem, use) {
+PHP_METHOD(Distmem, use) {/*{{{*/
     zval *object;
     DMSock *dm_sock;
     char *domain = NULL, *cmd, *response;
@@ -435,7 +508,7 @@ PHP_METHOD(Distmem, use) {
     } else {
         RETURN_FALSE;
     }
-}
+}/*}}}*/
 PHP_METHOD(Distmem, set)
 {
     zval *object;
@@ -465,12 +538,12 @@ PHP_METHOD(Distmem, set)
         convert_to_string(val);
         valstr = Z_STRVAL_P(val);
         val_len = Z_STRLEN_P(val);
-        cmd_len = spprintf(&cmd, 0, "*3\r\n$4\r\nset\r\n$%d\r\n%s\r\n$%d\r\n%c%s\r\n", strlen(key), key, val_len + 1, type, valstr);
+    } else {
+        valstr = array_to_string(val);
+        val_len = strlen(valstr);
     }
-    RETURN_STRING(cmd, 1);
+    cmd_len = spprintf(&cmd, 0, "*3\r\n$4\r\nset\r\n$%d\r\n%s\r\n$%d\r\n%c%s\r\n", strlen(key), key, val_len + 1, type, valstr);
 
-
-    /*
     if (dm_sock_write(dm_sock, cmd) < 0) {
         RETURN_FALSE;
     }
@@ -484,10 +557,9 @@ PHP_METHOD(Distmem, set)
     } else {
         RETURN_FALSE;
     }
-    */
 }
 
-PHP_METHOD(Distmem, get){
+PHP_METHOD(Distmem, get){/*{{{*/
     zval *object;
     DMSock *dm_sock;
     char *key = NULL, *cmd, *response;
@@ -544,5 +616,5 @@ PHP_METHOD(Distmem, get){
     } else {
         RETURN_NULL();
     }
-}
+}/*}}}*/
 PHP_METHOD(Distmem, delete){}
