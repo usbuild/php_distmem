@@ -288,8 +288,15 @@ PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd)
 PHPAPI void parse_list(zval *array, char *str) {//only one level
     char *s = str + 1, *old = s;
     zval *newarr;
+    char *t = s;
     switch(str[0]) {
         case 's':
+            while(t = strstr(t, "\\\\")) {
+                int i, len = strlen(t);
+                for(i = 0; i < len; i++) {
+                    t[i] = t[i + 1];
+                }
+            }
             add_next_index_string(array, s, 0);
             return;
         case 'i':
