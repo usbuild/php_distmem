@@ -263,16 +263,18 @@ PHPAPI int dm_sock_server_open(DMSock *dm_sock, int force_connect TSRMLS_DC) {
 
 }
 
-PHPAPI char *dm_sock_read(DMSock *dm_sock, int *buf_len TSRMLS_DC)
+PHPAPI char *dm_sock_read(DMSock *dm_sock, size_t count TSRMLS_DC)
 {
-    char inbuf[1024], response[1024], *s;
-    int length;
+    char * s = emalloc(sizeof(char) * count);
+    php_stream_read(dm_sock->stream, s, count);
+    return s;
+}
 
+PHPAPI char *dm_sock_readln(DMSock *dm_sock)
+{
+    char inbuf[1024], *s;
     s = php_stream_gets(dm_sock->stream, inbuf, 1024);
     return s;
-    //s = estrndup(s, (strlen(s)-2));
-    //strcpy(response, s);
-    //return response;
 }
 
 PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd)
@@ -388,7 +390,7 @@ PHP_METHOD(Distmem, use) {
         RETURN_FALSE;
     }
 
-    if ((response = dm_sock_read(dm_sock, &response_len TSRMLS_CC)) == NULL) {
+    if ((response = dm_sock_readln(dm_sock)) == NULL) {
         RETURN_FALSE;
     }
 
@@ -421,7 +423,7 @@ PHP_METHOD(Distmem, set)
         RETURN_FALSE;
     }
 
-    if ((response = dm_sock_read(dm_sock, &response_len TSRMLS_CC)) == NULL) {
+    if ((response = dm_sock_readln(dm_sock)) == NULL) {
         RETURN_FALSE;
     }
 
@@ -432,5 +434,54 @@ PHP_METHOD(Distmem, set)
     }
 }
 
+PHP_METHOD(Distmem, get){
+    zval *object;
+    DMSock *dm_sock;
+    char *key = NULL, *cmd, *response;
+    int key_len, cmd_len, response_len;
+
+    if (zend_parse_method_parameters(ZEND_NUM_ARGS() TSRMLS_CC, getThis(), "Os",
+                                     &object, distmem_ce, &key, &key_len) == FAILURE) {
+        RETURN_NULL();
+    }
+    if (dm_sock_get(object, &dm_sock TSRMLS_CC) < 0) {
+        RETURN_NULL();
+    }
+    cmd_len = spprintf(&cmd, 0, "*2\r\n$3\r\nget\r\n$%d\r\n%s\r\n", strlen(key), key);
+
+    if (dm_sock_write(dm_sock, cmd) < 0) {
+        RETURN_NULL();
+    }
+
+    if ((response = dm_sock_readln(dm_sock)) == NULL) {
+        RETURN_NULL();
+    }
+
+    if (response[0] == '$') {
+        response_len = atoi(response + 1);
+        response = dm_sock_read(dm_sock, response_len);
+        char *str;
+        switch(response[0]) {
+            case 'i':
+                break;
+            case 's':
+                str = emalloc(sizeof(char) * response_len);
+                strncpy(str, response + 1, response_len -1);
+                str[response_len - 1] = 0;
+                RETURN_STRING(str, 0);    
+            case 'f':
+                break;
+            case 'l':
+                break;
+            default:
+                break;
+        };
+
+        dm_sock_readln(dm_sock);//to skip next CRLF
+        RETURN_LONG(response_len);
+        RETURN_TRUE;
+    } else {
+        RETURN_NULL();
+    }
+}
 PHP_METHOD(Distmem, delete){}
-PHP_METHOD(Distmem, get){}

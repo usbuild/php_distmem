@@ -108,7 +108,8 @@ PHPAPI DMSock* dm_sock_create(char *host, int host_len, unsigned short port, lon
 PHPAPI int dm_sock_connect(DMSock *dm_sock TSRMLS_DC);
 PHPAPI int dm_sock_disconnect(DMSock *dm_sock TSRMLS_DC);
 PHPAPI int dm_sock_server_open(DMSock *dm_sock, int force_connect TSRMLS_DC);
-PHPAPI char* dm_sock_read(DMSock *dm_sock, int *buf_len TSRMLS_DC);
+PHPAPI char* dm_sock_read(DMSock *dm_sock, size_t buf_len TSRMLS_DC);
+PHPAPI char* dm_sock_readln(DMSock *dm_sock);
 PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd);
 PHPAPI void dm_free_socket(DMSock *dm_sock);
 PHPAPI int dm_sock_get(zval *id, DMSock **dm_sock TSRMLS_DC);
