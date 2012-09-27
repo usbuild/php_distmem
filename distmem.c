@@ -284,6 +284,35 @@ PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd)
     return 0;
 }
 
+
+PHPAPI void parse_list(zval *array, char *str) {//only one level
+    char *s = str + 1, *old = s;
+    zval *newarr;
+    switch(str[0]) {
+        case 's':
+            add_next_index_string(array, s, 0);
+            return;
+        case 'i':
+            add_next_index_long(array, atoi(s));
+            return;
+        case 'f':
+            add_next_index_double(array, atof(s));
+            return;
+        case 'l':
+            while(s = strchr(s, ',')) {
+                if( s > str + 1 && (*(s - 1) != '\\' || (*(s - 1) == '\\' && *(s - 2) == '\\'))) {
+                     parse_list(array, strndup(old, s - old));
+                     old = s + 1;
+                 }
+                     s++;
+             }
+            parse_list(array, old);
+            return;
+        default:
+            return;
+    }
+}
+
 /**
  * dm_sock_get
  */
@@ -463,29 +492,31 @@ PHP_METHOD(Distmem, get){
         char *str;
         int result;
         double fres;
+        zval * res_arr = emalloc(sizeof(zval));
         str = emalloc(sizeof(char) * response_len);
-        strncpy(str, response + 1, response_len -1);
+        strncpy(str, response, response_len);
         str[response_len - 1] = 0;
         switch(response[0]) {
             case 's':
-                RETURN_STRING(str, 0);    
+                RETURN_STRING(str + 1, 0);    
             case 'i':
-                result = atoi(str);
+                result = atoi(str + 1);
                 RETURN_LONG(result);
                 break;
             case 'f':
-                fres = atof(str);
+                fres = atof(str + 1);
                 RETURN_DOUBLE(fres);
                 break;
             case 'l':
-                break;
+                array_init(res_arr);
+                parse_list(res_arr, str);
+                RETURN_ZVAL(res_arr, 1, 1);
             default:
                 break;
         };
 
         dm_sock_readln(dm_sock);//to skip next CRLF
-        RETURN_LONG(response_len);
-        RETURN_TRUE;
+        return 0;
     } else {
         RETURN_NULL();
     }
