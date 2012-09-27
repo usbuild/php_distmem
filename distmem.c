@@ -590,10 +590,9 @@ PHP_METHOD(Distmem, get){/*{{{*/
         int result;
         double fres;
         zval * res_arr = emalloc(sizeof(zval));
-        str = emalloc(sizeof(char) * response_len);
+        str = emalloc(sizeof(char) * (response_len + 1 ));
         strncpy(str, response, response_len);
-        str[response_len - 1] = 0;
-        PHPWRITE(str, strlen(str));
+        str[response_len] = 0;
 
         switch(response[0]) {
             case 's':
