@@ -462,7 +462,7 @@ PHP_METHOD(Distmem, get){
         response = dm_sock_read(dm_sock, response_len);
         char *str;
         int result;
-        float fres;
+        double fres;
         str = emalloc(sizeof(char) * response_len);
         strncpy(str, response + 1, response_len -1);
         str[response_len - 1] = 0;
@@ -475,7 +475,7 @@ PHP_METHOD(Distmem, get){
                 break;
             case 'f':
                 fres = atof(str);
-                RETURN_FLOAT(fres);
+                RETURN_DOUBLE(fres);
                 break;
             case 'l':
                 break;
