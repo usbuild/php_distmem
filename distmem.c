@@ -97,6 +97,13 @@ static void php_distmem_init_globals(zend_distmem_globals *distmem_globals)
 */
 /* }}} */
 
+static void dm_destructor_redis_sock(zend_rsrc_list_entry * rsrc TSRMLS_DC)
+{
+    DMSock *dm_sock = (DMSock *) rsrc->ptr;
+    dm_sock_disconnect(dm_sock TSRMLS_CC);
+    dm_free_socket(dm_sock);
+}
+
 /* {{{ PHP_MINIT_FUNCTION
  */
 PHP_MINIT_FUNCTION(distmem)
@@ -105,6 +112,12 @@ PHP_MINIT_FUNCTION(distmem)
     INIT_CLASS_ENTRY(ce, "Distmem", distmem_method);
     distmem_ce = zend_register_internal_class(&ce TSRMLS_CC);
     //zend_declare_property_null(distmem_ce, "public_var", strlen("public_var"), ZEND_ACC_PUBLIC TSRMLS_CC);
+    le_dm_sock = zend_register_list_destructors_ex(
+        dm_destructor_redis_sock,
+        NULL,
+        dm_sock_name, module_number
+    );
+
     return SUCCESS;
 }
 /* }}} */

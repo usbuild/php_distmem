@@ -90,6 +90,7 @@ ZEND_END_MODULE_GLOBALS(distmem)
  * vim<600: noet sw=4 ts=4
  */
 #define PHP_DM_VERSION				"0.0.1"
+#define dm_sock_name "Distmem Socket Buffer"
 
 #define DM_SOCK_STATUS_FAILED		0
 #define DM_SOCK_STATUS_DISCONNECTED	1
