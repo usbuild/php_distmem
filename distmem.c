@@ -184,6 +184,7 @@ PHPAPI int str_count(char *haystack, char *needle) {/*{{{*/
 PHPAPI char* str_replace(char *haystack, char *search, char *replace) {/*{{{*/
     char *pos = strstr(haystack, search);
     int count = str_count(haystack, search);
+
     if(pos = NULL) {
         return strdup(haystack);
     }
@@ -324,14 +325,26 @@ PHPAPI int dm_sock_write(DMSock *dm_sock, char *cmd)/*{{{*/
     return 0;
 }/*}}}*/
 
+PHPAPI int val_sep(const char *s, const char *str) {/*{{{*/
+    if(*s != ',') return 0;
+    if(s - 1 >= str && *(s - 1) != '\\') return 1;
+    int i = 2;
+    while(s - i >= str) {
+        if(*(s - i) != '\\') {
+            if(i % 2 == 0) return 0;
+            return 1;
+        }
+        i++;
+    }
+}/*}}}*/
 PHPAPI void parse_list(zval *array, char *str) {//only one level/*{{{*/
     char *s = str + 1, *old = s;
     zval *newarr;
     char *t = s;
     switch(str[0]) {
         case 's':
-            t = str_replace(s, "\\\\", "\\");
-            s = str_replace(t, "\\,", ",");
+            t = str_replace(s, "\\,", ",");
+            s = str_replace(t, "\\\\", "\\");
             free(t);
             add_next_index_string(array, s, 0);
             return;
@@ -343,11 +356,11 @@ PHPAPI void parse_list(zval *array, char *str) {//only one level/*{{{*/
             return;
         case 'l':
             while(s = strchr(s, ',')) {
-                if( s > str + 1 && (*(s - 1) != '\\' || (*(s - 1) == '\\' && *(s - 2) == '\\'))) {
-                     parse_list(array, strndup(old, s - old + 1));
-                     old = s + 1;
+                if(val_sep(s, str)) {
+                    parse_list(array, strndup(old, s - old));
+                    old = s + 1;
                  }
-                     s++;
+                 s++;
              }
             parse_list(array, old);
             return;
@@ -388,6 +401,7 @@ PHPAPI char* array_to_string(zval *val) {/*{{{*/
         free(final);
         final = tmp;
         free(str1);
+        free(str2);
         free(str);
     }
     return final + 2;//for space and comma
@@ -577,7 +591,11 @@ PHP_METHOD(Distmem, get){/*{{{*/
     }
 
     if (response[0] == '$') {
+
         response_len = atoi(response + 1);
+        if(response_len == -1) {
+            RETURN_NULL();
+        }
         response = dm_sock_read(dm_sock, response_len);
         char *str;
         int result;
@@ -586,6 +604,7 @@ PHP_METHOD(Distmem, get){/*{{{*/
         str = emalloc(sizeof(char) * (response_len + 1 ));
         strncpy(str, response, response_len);
         str[response_len] = 0;
+        dm_sock_readln(dm_sock);//to skip next CRLF
 
         switch(response[0]) {
             case 's':
@@ -605,8 +624,6 @@ PHP_METHOD(Distmem, get){/*{{{*/
             default:
                 break;
         };
-
-        dm_sock_readln(dm_sock);//to skip next CRLF
         return 0;
     } else {
         RETURN_NULL();
