@@ -439,22 +439,38 @@ PHP_METHOD(Distmem, use) {
 PHP_METHOD(Distmem, set)
 {
     zval *object;
+    zval *val;
     DMSock *dm_sock;
-    char *key = NULL, *val = NULL, *cmd, *response;
+    char *key = NULL, *valstr = NULL, *cmd, *response;
     int key_len, val_len, cmd_len, response_len;
+    char type;
 
-    if (zend_parse_method_parameters(ZEND_NUM_ARGS() TSRMLS_CC, getThis(), "Oss",
+    if (zend_parse_method_parameters(ZEND_NUM_ARGS() TSRMLS_CC, getThis(), "Osz",
                                      &object, distmem_ce, &key, &key_len,
-                                     &val, &val_len) == FAILURE) {
+                                     &val) == FAILURE) {
         RETURN_FALSE;
     }
+
 
     if (dm_sock_get(object, &dm_sock TSRMLS_CC) < 0) {
         RETURN_FALSE;
     }
+    switch(Z_TYPE_P(val)) {
+        case IS_ARRAY:type = 'l'; break;
+        case IS_DOUBLE: type = 'f';break;
+        case IS_LONG: type = 'i';break;
+        default: type = 's';break;
+    }
+    if(Z_TYPE_P(val) != IS_ARRAY) {
+        convert_to_string(val);
+        valstr = Z_STRVAL_P(val);
+        val_len = Z_STRLEN_P(val);
+        cmd_len = spprintf(&cmd, 0, "*3\r\n$4\r\nset\r\n$%d\r\n%s\r\n$%d\r\n%c%s\r\n", strlen(key), key, val_len + 1, type, valstr);
+    }
+    RETURN_STRING(cmd, 1);
 
-    cmd_len = spprintf(&cmd, 0, "*3\r\n$3\r\nset\r\n$%d\r\n%s\r\n$%d\r\ns%s\r\n", strlen(key), key, strlen(val) + 1, val);
 
+    /*
     if (dm_sock_write(dm_sock, cmd) < 0) {
         RETURN_FALSE;
     }
@@ -468,6 +484,7 @@ PHP_METHOD(Distmem, set)
     } else {
         RETURN_FALSE;
     }
+    */
 }
 
 PHP_METHOD(Distmem, get){
