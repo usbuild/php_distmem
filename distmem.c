@@ -643,4 +643,34 @@ PHP_METHOD(Distmem, get){/*{{{*/
     }
 }/*}}}*/
 
-PHP_METHOD(Distmem, delete){}
+PHP_METHOD(Distmem, delete) {
+    zval *object;
+    DMSock *dm_sock;
+    char *domain = NULL, *cmd, *response;
+    int domain_len, cmd_len, response_len;
+
+    if (zend_parse_method_parameters(ZEND_NUM_ARGS() TSRMLS_CC, getThis(), "Os",
+                                     &object, distmem_ce, &domain, &domain_len) == FAILURE) {
+        RETURN_FALSE;
+    }
+
+    if (dm_sock_get(object, &dm_sock TSRMLS_CC) < 0) {
+        RETURN_FALSE;
+    }
+
+    cmd_len = spprintf(&cmd, 0, "*2\r\n$3\r\ndel\r\n$%d\r\n%s\r\n", strlen(domain), domain);
+
+    if (dm_sock_write(dm_sock, cmd) < 0) {
+        RETURN_FALSE;
+    }
+
+    if ((response = dm_sock_readln(dm_sock)) == NULL) {
+        RETURN_FALSE;
+    }
+
+    if (response[0] == '+') {
+        RETURN_TRUE;
+    } else {
+        RETURN_FALSE;
+    }
+}
